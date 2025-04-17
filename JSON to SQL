@@ -1,0 +1,61 @@
+import json
+import mysql.connector
+from datetime import datetime
+import os
+
+# === CONFIG ===
+MYSQL_CONFIG = {
+    'host': 'localhost',
+    'user': 'your_mysql_user',
+    'password': 'your_mysql_password',
+    'database': 'spotify_db'
+}
+
+TABLE_NAME = 's_history'
+JSON_FILES = [
+    'StreamingHistory_music_0.json',
+    'StreamingHistory_music_1.json',
+    'StreamingHistory_music_2.json'
+]
+
+# === CONNECT TO MYSQL ===
+conn = mysql.connector.connect(**MYSQL_CONFIG)
+cursor = conn.cursor()
+
+# === CREATE TABLE IF NOT EXISTS ===
+cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    endTime DATETIME,
+    artistName VARCHAR(255),
+    trackName VARCHAR(255),
+    msPlayed INT
+);
+""")
+
+# === PARSE AND INSERT DATA ===
+insert_query = f"""
+INSERT INTO {TABLE_NAME} (endTime, artistName, trackName, msPlayed)
+VALUES (%s, %s, %s, %s)
+"""
+
+for filename in JSON_FILES:
+    print(f" Loading file: {filename}")
+    with open(filename, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    for entry in data:
+        try:
+            end_time = datetime.strptime(entry['endTime'], "%Y-%m-%d %H:%M")
+            artist = entry.get('artistName', '')[:255]
+            track = entry.get('trackName', '')[:255]
+            ms_played = int(entry.get('msPlayed', 0))
+
+            cursor.execute(insert_query, (end_time, artist, track, ms_played))
+        except Exception as e:
+            print(f" Error processing entry: {entry}\n{e}")
+
+conn.commit()
+cursor.close()
+conn.close()
+print(" All data inserted successfully!")
