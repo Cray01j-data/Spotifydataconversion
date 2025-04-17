@@ -1,0 +1,67 @@
+-- Spotify Code Cleaning 
+-- Create Staging
+
+CREATE TABLE s_history_staging
+LIKE s_history;
+
+INSERT  s_history_staging 
+SELECT *
+FROM s_history;
+-- Locate NULL or Unknown
+
+SELECT *
+FROM s_history
+WHERE artistName IS NULL
+   OR artistName LIKE 'Unknown%';
+
+-- Deletion
+DELETE FROM s_history
+WHERE artistName IS NULL
+   OR LOWER(artistName) LIKE 'unknown%';
+
+-- VIEWS
+CREATE OR REPLACE VIEW total_plays_by_artist AS
+SELECT 
+  artistName,
+  COUNT(*) AS total_plays,
+  ROUND(SUM(msPlayed) / 60000, 2) AS total_minutes
+FROM s_history
+WHERE artistName IS NOT NULL
+GROUP BY artistName
+ORDER BY total_plays DESC;
+
+CREATE OR REPLACE VIEW total_plays_by_month AS
+SELECT 
+  DATE_FORMAT(endTime, '%Y-%m') AS month,
+  COUNT(*) AS total_plays,
+  ROUND(SUM(msPlayed) / 60000, 2) AS total_minutes
+FROM s_history
+GROUP BY month
+ORDER BY month;
+
+CREATE OR REPLACE VIEW top_tracks AS
+SELECT 
+  artistName,
+  trackName,
+  COUNT(*) AS play_count,
+  ROUND(SUM(msPlayed) / 60000, 2) AS total_minutes
+FROM s_history
+GROUP BY artistName, trackName
+ORDER BY total_minutes DESC
+LIMIT 100;  -- You can adjust this number as needed
+
+CREATE OR REPLACE VIEW shortest_sessions AS
+SELECT 
+  artistName,
+  trackName,
+  msPlayed,
+  ROUND(msPlayed / 1000, 2) AS seconds
+FROM s_history
+WHERE msPlayed > 0
+ORDER BY msPlayed ASC
+LIMIT 100;
+
+CREATE OR REPLACE VIEW full_plays_only AS
+SELECT *
+FROM s_history
+WHERE msPlayed >= 10000;
